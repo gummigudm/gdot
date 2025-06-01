@@ -49,8 +49,9 @@ function _is_init() {
                 return 0
             fi
         fi
+        return 1
     fi
-    return 1
+    return 0
 }
 
 ## Function to check if action made a change since last check
