@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+## gdotdesc: Generate a new random password
+
+if ! which pwgen &>/dev/null; then
+    echo "pwgen is not installed. Please install it first."
+    exit 1
+fi
+
+# Set length
+length=32
+[[ "$1" =~ ^[0-9]+$ ]] && length="$1"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    pwgen -sBA "$length" 1 | pbcopy
+    echo "Password copied to clipboard"
+else
+    pwgen -sBA "$length" 1
+fi

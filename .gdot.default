@@ -1,0 +1,72 @@
+# --------------------------------------
+# gDot configuration
+# --------------------------------------
+
+## Context
+#  Used to set the contexts of this workstation.
+#  Topics can be set per specific context,
+#  so gdot can be used to manage different systems.
+#  F.x. a topic might install all from 'base',
+#  as well as specifically 'vscode' as well.
+#
+gdot_context="all"
+
+## Identity
+#  Sets the gdot identity variables
+#  Used in various topics for customization
+#
+gdot_name="Gudmundur Gudmundsson"
+gdot_user="gummi"
+gdot_mail="gummigudm@gmail.com"
+gdot_host="hermes"
+gdot_org="gummigudm"
+
+## Config directory
+#  The source directory where gdot can fetch persistent configuration files.
+#
+gdot_config_dir="${HOME}/Documents/Gdot"
+
+## Code directory
+#  Where code repositories are stored.
+#
+gdot_code_dir="${HOME}/Code"
+
+# --------------------------------------
+# Git configuration
+# --------------------------------------
+
+## Git Identity
+#  Sets the git identity variables
+#  used in local git configuration
+#
+git_name="$gdot_name"
+git_user="$gdot_user"
+git_mail="$gdot_mail"
+
+## Git Signing Agent
+#  Sets signing agent for git commits.
+#  Currently values are none, gpg, ssh, 1pass.
+#  Linux hosts use ssh by default, even if 1pass is selected.
+#
+git_signer="1pass"
+
+## Git Signer Program
+#  Sets the program used for signing git commits.
+#  Leave empty to use the default for the selected signer.
+#
+git_signer_program=""
+
+## Git Signing Key
+#  Sets the public signing key used for signing git commits.
+#  SSH public key or GPG public key, depending on signer.
+#
+git_signing_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFbDnFLNRg7unn0XSHTlasRVx1pwEiaApwMCiHdIU7uF"
+
+# --------------------------------------
+# Python configuration
+# --------------------------------------
+
+## Python virtual environment directory
+#  The directory where Python virtual environments are stored.
+#
+python_env_dir="${HOME}/.pyenv"

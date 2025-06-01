@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+## gdotdesc: Create a Python virtual environment
+
+## Prerequisite variables
+gdot_bin_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+gdot_path="$(dirname "$gdot_bin_path")"
+source "${gdot_path}/lib/gdot/info.sh"
+_get_settings
+_get_platform
+
+previous_dir="$(pwd)"
+success=0
+
+# --------------------------------------
+# Check prerequisites
+# --------------------------------------
+
+if [ "$current_platform" != "macos" ]; then
+    printf "\nError: pyenvgen is only supported on MacOS\n"
+    exit 1
+fi
+
+if ! which brew &>/dev/null; then
+    printf "\nError: pyenvgen requires Homebrew\n"
+    exit 1
+fi
+
+if [ ! -d "$python_env_dir" ]; then
+    printf "\nError: Python environment directory '%s' does not exist\n" "$python_env_dir"
+    exit 1
+fi
+
+# --------------------------------------
+# Python version selection
+# --------------------------------------
+
+# Read and sort python versions (descending by version number)
+IFS=$'\n' read -r -d '' -a py_versions < <(
+    brew list | grep '^python@' | sort -t@ -k2,2Vr && printf '\0'
+)
+
+# Check if any were found
+if [ ${#py_versions[@]} -eq 0 ]; then
+    printf "\nNo Homebrew Python versions found\n"
+    exit 1
+fi
+
+# Display options (1-indexed)
+printf "\n---------------------------------------\n"
+printf "\nAvailable Python versions:\n"
+for i in "${!py_versions[@]}"; do
+    default=""
+    [ $i -eq 0 ] && default=" (default)"
+    index=$((i + 1))
+    version="${py_versions[$i]#python@}"
+    printf " %2d) %s%s\n" "$index" "$version" "$default"
+done
+printf "\n"
+
+# Prompt user
+read -rp "Use version: " selection
+
+# Default to 1 if empty
+if [[ -z "$selection" ]]; then
+    selection=1
+fi
+
+# Convert to 0-based index for array access
+index=$((selection - 1))
+
+# Validate input
+if ! [[ "$selection" =~ ^[0-9]+$ ]] || (( index < 0 || index >= ${#py_versions[@]} )); then
+    printf "\nError: Invalid selection, index '%s' not in list\n" "$selection"
+    exit 1
+fi
+
+# Get the selected version and its path
+chosen="${py_versions[$index]}"
+py_path="$(brew --prefix "$chosen")/bin"
+
+# Verify path exists
+if [ ! -d "$py_path" ]; then
+    printf "\nError: Could not find bin directory for %s\n" "$chosen"
+    exit 1
+fi
+
+py_cmd="python${chosen#python@}"
+
+if ! which "$py_cmd" &>/dev/null; then
+    printf "\nError: %s not found in %s\n" "$py_cmd" "$py_path"
+    exit 1
+fi
+
+# --------------------------------------
+# Environment name
+# --------------------------------------
+
+# Prompt for environment name
+read -rp "Environment name: " env_name
+if [[ -z "$env_name" ]]; then
+    printf "\nError: Environment name cannot be empty\n"
+    exit 1
+fi
+
+# Validate environment name (alphanumeric and underscores only)
+if ! [[ "$env_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+    printf "\nError: Environment name must be alphanumeric and can include underscores\n"
+    exit 1
+fi
+
+# Check if environment already exists
+if [ -d "${python_env_dir}/${env_name}" ]; then
+    printf "\nError: Environment '%s' already exists\n" "$env_name"
+    exit 1
+fi
+
+# --------------------------------------
+# Packages
+# --------------------------------------
+
+# Prompt for additional packages
+printf "\nPackages to install\n"
+printf "  (one per line, or space separated)\n"
+packages=()
+while true; do
+    read -rp "Add: " pkg_line
+    # Stop if input is empty
+    [[ -z "$pkg_line" ]] && break
+    # Split line into array and append
+    read -ra pkgs <<< "$pkg_line"
+    packages+=("${pkgs[@]}")
+done
+
+# --------------------------------------
+# Confirmation
+# --------------------------------------
+
+printf "\n---------------------------------------\n"
+printf "\nVirtual environment to create:\n\n"
+printf "  Environment name: %s\n" "$env_name"
+printf "  Python version:   %s\n" "${chosen#python@}"
+if [ ${#packages[@]} -eq 0 ]; then
+    printf "\n  Packages:         None\n"
+else
+    printf "\n  Packages:\n"
+    for pkg in "${packages[@]}"; do
+        printf "    - %s\n" "$pkg"
+    done
+fi
+
+printf "\n---------------------------------------\n"
+printf "\nConfirmation\n"
+printf "Create this environment? (y/n): "
+read -r confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    printf "Cancelled\n"
+    exit 0
+fi
+
+# --------------------------------------
+# Cleanup trap
+# --------------------------------------
+
+# Cleanup function to remove partially created environment
+cleanup_env() {
+    cd "$previous_dir"
+    if [ $success -eq 1 ]; then
+        exit 0
+    fi
+    # Cleanup
+    if [ -d "${python_env_dir}/${env_name}" ]; then
+        printf "Cleaning up partial environment '%s'...\n" "$env_name"
+        rm -rf "${python_env_dir:?}/${env_name}"
+    fi
+    exit 1
+}
+
+# Set trap to cleanup on error or interruption
+trap cleanup_env EXIT INT
+
+# --------------------------------------
+# Creation
+# --------------------------------------
+
+printf "\n---------------------------------------\n"
+printf "\nCreating..\n"
+printf "\n* Creating environment...\n"
+
+cd "${python_env_dir}"
+$py_cmd -m venv "${env_name}"
+if [ $? -ne 0 ]; then
+    printf "\nError: Failed to create virtual environment\n"
+    exit 1
+fi
+
+printf "* Activating environment...\n"
+cd "${python_env_dir}/${env_name}"
+source bin/activate
+if [ $? -ne 0 ]; then
+    printf "\nError: Failed to activate virtual environment\n"
+    exit 1
+fi
+
+printf "* Setting up pip...\n"
+pip install --upgrade pip
+if [ $? -ne 0 ]; then
+    printf "\nError: Failed to setup pip\n"
+    exit 1
+fi
+
+printf "* Setting up pipenv...\n"
+pip install pipenv
+if [ $? -ne 0 ]; then
+    printf "\nError: Failed to setup pipenv\n"
+    exit 1
+fi
+
+printf "* Installing packages...\n"
+pipenv install "${packages[@]}"
+if [ $? -ne 0 ]; then
+    printf "\nError: Failed to install packages\n"
+    exit 1
+fi
+
+# --------------------------------------
+# Finalization
+# --------------------------------------
+
+printf "\nVirtual environment '%s' created successfully!\n" "$env_name"
+printf "You can activate it with:\n"
+printf "source %s/%s/bin/activate\n" "${python_env_dir}" "${env_name}"
+printf "source %s/%s/bin/activate" "${python_env_dir}" "${env_name}" | pbcopy
+success=1
+exit 0

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+## gdotdesc: This dotfile manager
+
+# ------------------------------------------------------------------------------
+# Settings & Variables
+# ------------------------------------------------------------------------------
+
+# Paths
+gdot_bin_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+gdot_path="$(dirname "$gdot_bin_path")"
+
+# Urls
+brew_url="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+
+# Current
+current_platform=""
+current_shell=""
+current_dir=""
+
+# Settings
+gdot_context=""
+
+gdot_name=""
+gdot_user=""
+gdot_mail=""
+gdot_config_dir=""
+
+# Run variables
+verbose=0
+was_changed_flag=0
+sudo_password=""
+
+# ------------------------------------------------------------------------------
+# Source library
+# ------------------------------------------------------------------------------
+
+source "${gdot_path}/lib/gdot/info.sh"
+source "${gdot_path}/lib/gdot/usage.sh"
+source "${gdot_path}/lib/gdot/lib.sh"
+source "${gdot_path}/lib/gdot/actions.sh"
+source "${gdot_path}/lib/gdot/cli.sh"
+source "${gdot_path}/lib/gdot/gdot.sh"
+
+# ------------------------------------------------------------------------------
+# Run
+# ------------------------------------------------------------------------------
+
+_gdot "$@"

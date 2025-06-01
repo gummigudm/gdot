@@ -1,0 +1,15 @@
+.DS_Store
+.gdot
+
+# Zsh configuration files
+shells/zsh/*
+shells/zsh/completions/*
+!shells/zsh/completions
+!shells/zsh/completions/.gitkeep
+!shells/zsh/*.zsh
+!shells/zsh/*.sh
+!shells/zsh/.zshenv
+!shells/zsh/.zprofile
+!shells/zsh/.zshrc
+!shells/zsh/.zlogin
+!shells/zsh/.hushlogin
