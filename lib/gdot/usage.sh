@@ -51,8 +51,8 @@ function _usage_shell() {
 
     printf "Commands:\n"
     printf "  list                        Lists available shell profiles or details\n"
-    printf "  setup [<profile>]           Sets up all or single shell\n\n"
-    printf "  copy <profile>              Copies simple shell profile oneliner to install on remote system\n"
+    printf "  setup [<profile>]           Sets up all or single shell\n"
+    printf "  copy <profile>              Copies simple shell profile oneliner to install on remote system\n\n"
 
     printf "Options:\n"
     printf "  -c=ctx | --context=ctx      Set context for run\n"

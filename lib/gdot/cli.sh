@@ -86,7 +86,7 @@ function _gdot() {
                     if [ -n "${commands[2]}" ]; then
                         param="${commands[2]}"
                     else
-                        printf "Error: Missing shell name for copy command\n" >&2
+                        printf "Error: Missing shell profile name argument\n" >&2
                         _usage_shell
                         exit 1
                     fi
