@@ -218,12 +218,13 @@ function _shell_copy() {
         exit 1
     fi
 
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        printf '/bin/bash -c "$(curl -fsSL %s/shells/%s/copy_from_git.sh)"' "$gdot_url" "$1" | pbcopy
-    fi
     printf "Commands:\n"
     printf '/bin/bash -c "$(curl -fsSL %s/shells/%s/copy_from_git.sh)"\n' "$gdot_url" "$1"
     printf '/bin/bash -c "$(wget -qO- %s/shells/%s/copy_from_git.sh)"\n' "$gdot_url" "$1"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        printf '/bin/bash -c "$(curl -fsSL %s/shells/%s/copy_from_git.sh)"' "$gdot_url" "$1" | pbcopy
+        printf "Curl variant copied to clipboard.\n"
+    fi
 }
 
 # ------------------------------------------------------------------------------

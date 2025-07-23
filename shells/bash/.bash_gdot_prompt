@@ -42,6 +42,7 @@ PR_GIT_COLOR=$MAGENTA
 # Cached values
 PR_LAST_EXIT=0
 PR_HOSTNAME=$(hostname)
+PR_USERNAME=$(whoami)
 IFS=',' read -r -a PR_USER_WHITELIST <<< "$PR_WHITELISTED_USERNAMES"
 IFS=',' read -r -a PR_HOST_WHITELIST <<< "$PR_WHITELISTED_HOSTNAMES"
 
@@ -110,12 +111,12 @@ prompt_dir() {
 prompt_user() {
   local in_whitelist=0
   for u in "${PR_USER_WHITELIST[@]}"; do
-    [[ "$USER" == "$u" ]] && in_whitelist=1 && break
+    [[ "$PR_USERNAME" == "$u" ]] && in_whitelist=1 && break
   done
   (( in_whitelist && PR_USER_SHOW_WHITELIST == 0 )) && return
 
   local color
-  if [[ "$USER" == "root" ]]; then
+  if [[ "$PR_USERNAME" == "root" ]]; then
     color="$PR_USER_COLOR_ROOT"
   elif (( in_whitelist )); then
     color="$PR_USER_COLOR_MAIN"
@@ -123,7 +124,7 @@ prompt_user() {
     color="$PR_USER_COLOR_OTHER"
   fi
 
-  printf "%s in " "$(wrap_color "$color" "$USER")"
+  printf "%s in " "$(wrap_color "$color" "$PR_USERNAME")"
 }
 
 ## Render host prompt

@@ -30,4 +30,5 @@ for file in "${files[@]}"; do
 done
 
 printf "Gdot simple bash profile successfully set up!\n"
-source "$HOME/.bashrc"
+printf "Run to source:\n"
+printf 'source "$HOME/.bashrc"\n'
