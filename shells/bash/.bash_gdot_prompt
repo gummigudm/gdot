@@ -182,7 +182,7 @@ prompt_git() {
         local behind ahead
         behind=$(echo "$commits" | cut -f1)
         ahead=$(echo "$commits" | cut -f2)
-        
+
         if [[ "$behind" == "0" && "$ahead" == "0" ]]; then
           branch_icon="$PR_GIT_ICON_BRANCH_MATCH"
         elif [[ "$behind" == "0" ]]; then
