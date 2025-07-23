@@ -20,7 +20,23 @@ else
     exit 1
 fi
 
-## Fetch the shell profile files
+## Setup bash profile
+printf "Setting up bash profile...\n"
+
+## Checking existence of files
+for file in "${files[@]}"; do
+    if [ -e "$HOME/$file" ]; then
+        printf "Warning: File '%s' already exists, do you wish to overwrite? (y/n): " "$file"
+        read -r answer
+        if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+            printf "Aborted.\n"
+            exit 0
+        fi
+        rm -rf "$HOME/$file"
+    fi
+done
+
+## Fetching files
 for file in "${files[@]}"; do
     $get_cmd "$HOME/$file" "$repo_url/$file"
     if [ $? -ne 0 ]; then
@@ -29,6 +45,7 @@ for file in "${files[@]}"; do
     fi
 done
 
+## Print success message
 printf "Gdot simple bash profile successfully set up!\n"
-printf "Run to source:\n"
+printf "Source new profile:\n"
 printf 'source "$HOME/.bashrc"\n'
