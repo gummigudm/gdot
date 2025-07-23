@@ -201,6 +201,31 @@ function _shell_setup() {
     fi
 }
 
+# Shell copy oneliner to set up a simple shell profile directly without gdot repo
+function _shell_copy() {
+    local gdot_url="https://raw.githubusercontent.com/gummigudm/gdot/refs/heads/initialdev"
+
+    if [ -z "$1" ]; then
+        return
+    fi
+
+    if [ ! -d "$gdot_path/shells/$1" ]; then
+        printf "Error: Shell profile '%s' not found\n" "$1" >&2
+        exit 1
+    fi
+    if [ ! -f "$gdot_path/shells/$1/copy_from_git.sh" ]; then
+        printf "Error: Shell profile '%s' does not have simple installer\n" "$1" >&2
+        exit 1
+    fi
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        printf '/bin/bash -c "$(curl -fsSL %s/shells/%s/copy_from_git.sh)"' "$gdot_url" "$1" | pbcopy
+    fi
+    printf "Commands:\n"
+    printf '/bin/bash -c "$(curl -fsSL %s/shells/%s/copy_from_git.sh)"\n' "$gdot_url" "$1"
+    printf '/bin/bash -c "$(wget -qO- %s/shells/%s/copy_from_git.sh)"\n' "$gdot_url" "$1"
+}
+
 # ------------------------------------------------------------------------------
 # Topic Actions
 # ------------------------------------------------------------------------------

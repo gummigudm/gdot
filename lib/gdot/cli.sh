@@ -81,6 +81,21 @@ function _gdot() {
                         exit 1
                     fi
                     ;;
+                copy)
+                    action="${action}_copy"
+                    if [ -n "${commands[2]}" ]; then
+                        param="${commands[2]}"
+                    else
+                        printf "Error: Missing shell name for copy command\n" >&2
+                        _usage_shell
+                        exit 1
+                    fi
+                    if [ -n "${commands[3]}" ]; then
+                        printf "Error: Invalid argument '${commands[3]}'\n" >&2
+                        _usage_shell
+                        exit 1
+                    fi
+                    ;;
                 '')
                     _usage_shell
                     exit 0
