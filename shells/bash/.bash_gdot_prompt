@@ -135,7 +135,7 @@ prompt_host() {
   done
   (( in_whitelist && PR_HOST_SHOW_WHITELIST == 0 )) && return
 
-  wrap_color "$PR_HOST_COLOR" "$PR_HOSTNAME: "
+  printf "%s: " "$(wrap_color "$PR_HOST_COLOR" "$PR_HOSTNAME")"
 }
 
 # -=------------------=-------------------------------------------------------------------------=- #
