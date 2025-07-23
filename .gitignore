@@ -13,3 +13,11 @@ shells/zsh/completions/*
 !shells/zsh/.zshrc
 !shells/zsh/.zlogin
 !shells/zsh/.hushlogin
+
+# Bash configuration files
+shells/bash/*
+!shells/bash/*.bash
+!shells/bash/*.sh
+!shells/bash/.bashrc
+!shells/bash/.bash_profile
+!shells/bash/.bash_gdot_prompt

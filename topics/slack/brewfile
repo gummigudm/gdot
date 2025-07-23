@@ -1,1 +1,2 @@
 cask "slack"
+cask "slack-cli"

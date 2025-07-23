@@ -1,0 +1,228 @@
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Prompt             Color variables to use                                                       #
+#  Colors                                                                                          #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Prompt             Variables to determine behaviour                                             #
+#  Variables                                                                                       #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+PR_WHITELISTED_USERNAMES="gummi,gummig"
+PR_WHITELISTED_HOSTNAMES="hermes"
+PR_CHAR="→"
+PR_DIR_DEPTH=2
+PR_USER_SHOW_WHITELIST=0
+PR_HOST_SHOW_WHITELIST=0
+
+PR_USER_COLOR_ROOT=$RED
+PR_USER_COLOR_OTHER=$YELLOW
+PR_USER_COLOR_MAIN=$GREEN
+PR_HOST_COLOR=$BLUE
+PR_DIR_COLOR=$CYAN
+
+PR_GIT_SHOW=1
+PR_GIT_SHOW_UPSTREAM_INFO=1
+PR_GIT_SHOW_DIRECTORY_INFO=1
+PR_GIT_COLOR=$MAGENTA
+
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Prompt             Prerequisite variables and functions                                         #
+#  Prerequisites                                                                                   #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+# Cached values
+PR_LAST_EXIT=0
+PR_HOSTNAME=$(hostname)
+IFS=',' read -r -a PR_USER_WHITELIST <<< "$PR_WHITELISTED_USERNAMES"
+IFS=',' read -r -a PR_HOST_WHITELIST <<< "$PR_WHITELISTED_HOSTNAMES"
+
+# Precommand hook to set up prompt
+precmd() {
+  PR_LAST_EXIT=$?
+
+  # iTerm2 support (optional)
+  echo -e "\033]1337;SetBadgeFormat=$(echo -n "$PR_HOSTNAME" | base64)\a"
+  printf "\033]1337;RemoteHost=%s@%s\007" "$USER" "$PR_HOSTNAME"
+  printf "\033]1337;CurrentDir=%s\007" "$PWD"
+  printf "\e]0;%s\a" "$PR_HOSTNAME"
+}
+
+# Color wrapper function
+wrap_color() {
+  # $1 = color, $2 = text
+  printf "${1}%s${RESET}" "$2"
+}
+
+# Prompt character
+prompt_char() {
+  if (( PR_LAST_EXIT != 0 )); then
+    wrap_color "$RED" "$PR_CHAR "
+  else
+    wrap_color "$GREEN" "$PR_CHAR "
+  fi
+}
+
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Info               Shows user, host and directory information                                   #
+#  Prompt                                                                                          #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+## Render directory prompt
+prompt_dir() {
+  local path
+  if [[ "$PWD" == "$HOME"* ]]; then
+    path="~${PWD#$HOME}"
+  else
+    path="$PWD"
+  fi
+
+  local IFS='/'
+  local -a parts
+  read -ra parts <<< "${path#/}"  # Remove leading / or ~ for clean split
+
+  local count=${#parts[@]}
+  local start=$((count > PR_DIR_DEPTH ? count - PR_DIR_DEPTH : 0))
+
+  local result=""
+  for ((i = start; i < count; i++)); do
+    result+="${parts[i]}"
+    ((i < count - 1)) && result+="/"
+  done
+
+  # Add leading "/" only if we didn't truncate and it's an absolute path
+  if (( start == 0 )); then
+    [[ "$path" == /* ]] && result="/$result"
+  fi
+
+  wrap_color "$PR_DIR_COLOR" "$result"
+}
+
+## Render user prompt
+prompt_user() {
+  local in_whitelist=0
+  for u in "${PR_USER_WHITELIST[@]}"; do
+    [[ "$USER" == "$u" ]] && in_whitelist=1 && break
+  done
+  (( in_whitelist && PR_USER_SHOW_WHITELIST == 0 )) && return
+
+  local color
+  if [[ "$USER" == "root" ]]; then
+    color="$PR_USER_COLOR_ROOT"
+  elif (( in_whitelist )); then
+    color="$PR_USER_COLOR_MAIN"
+  else
+    color="$PR_USER_COLOR_OTHER"
+  fi
+
+  printf "%s in " "$(wrap_color "$color" "$USER")"
+}
+
+## Render host prompt
+prompt_host() {
+  local in_whitelist=0
+  for h in "${PR_HOST_WHITELIST[@]}"; do
+    [[ "$PR_HOSTNAME" == "$h" ]] && in_whitelist=1 && break
+  done
+  (( in_whitelist && PR_HOST_SHOW_WHITELIST == 0 )) && return
+
+  wrap_color "$PR_HOST_COLOR" "$PR_HOSTNAME: "
+}
+
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Git                Shows Git information                                                        #
+#  Prompt                                                                                          #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+## Variables
+PR_GIT_COLOR_BRANCH=$MAGENTA
+PR_GIT_COLOR_STATE=$MAGENTA
+PR_GIT_ICON_BRANCH='⎇'
+PR_GIT_ICON_BRANCH_NEW='⊕'
+PR_GIT_ICON_BRANCH_MATCH='⦿'
+PR_GIT_ICON_BRANCH_AHEAD='⇡'
+PR_GIT_ICON_BRANCH_BEHIND='⇣'
+PR_GIT_ICON_BRANCH_DIVERGED='⇅'
+PR_GIT_ICON_DIR_CLEAN='✓'
+PR_GIT_ICON_DIR_UNTRACKED='?'
+PR_GIT_ICON_DIR_MODIFIED='!'
+PR_GIT_ICON_DIR_STASHED='$'
+
+## Render Git prompt
+prompt_git() {
+  (( PR_GIT_SHOW == 0 )) && return
+
+  if ! command -v git &> /dev/null || ! git rev-parse --is-inside-work-tree &> /dev/null; then
+    return
+  fi
+
+  local branch upstream commits count directory branch_icon
+  local prompt=""
+  
+  # Show branch name
+  branch=$(git symbolic-ref HEAD 2>/dev/null | awk -F/ '{print $NF}')
+  [[ -z "$branch" ]] && return
+
+  # Show upstream info
+  if (( PR_GIT_SHOW_UPSTREAM_INFO == 1 )); then
+    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+    if [[ -z "$upstream" ]]; then
+      branch_icon="$PR_GIT_ICON_BRANCH_NEW"
+    else
+      if commits=$(git rev-list --left-right --count "$upstream"...HEAD 2>/dev/null); then
+        local behind ahead
+        behind=$(echo "$commits" | cut -f1)
+        ahead=$(echo "$commits" | cut -f2)
+        
+        if [[ "$behind" == "0" && "$ahead" == "0" ]]; then
+          branch_icon="$PR_GIT_ICON_BRANCH_MATCH"
+        elif [[ "$behind" == "0" ]]; then
+          branch_icon="$PR_GIT_ICON_BRANCH_AHEAD"
+        elif [[ "$ahead" == "0" ]]; then
+          branch_icon="$PR_GIT_ICON_BRANCH_BEHIND"
+        else
+          branch_icon="$PR_GIT_ICON_BRANCH_DIVERGED"
+        fi
+      else
+        branch_icon="$PR_GIT_ICON_BRANCH_NEW"
+      fi
+    fi
+    prompt+=" on $(wrap_color "$PR_GIT_COLOR_BRANCH" "$PR_GIT_ICON_BRANCH $branch$branch_icon")"
+  else
+    prompt+=" on $(wrap_color "$PR_GIT_COLOR_BRANCH" "$PR_GIT_ICON_BRANCH $branch")"
+  fi
+
+  # Show directory info
+  if (( PR_GIT_SHOW_DIRECTORY_INFO == 1 )); then
+    local untracked modified status_output
+    status_output=$(git status --porcelain 2>/dev/null)
+    if [[ -n "$status_output" ]]; then
+      untracked=$(echo "$status_output" | grep -c "^??")
+      modified=$(echo "$status_output" | grep -c -v "^??")
+
+      local dir_status=""
+      (( untracked > 0 )) && dir_status+="$PR_GIT_ICON_DIR_UNTRACKED"
+      (( modified > 0 )) && dir_status+="$PR_GIT_ICON_DIR_MODIFIED"
+      
+      [[ -n "$dir_status" ]] && prompt+="$(wrap_color "$PR_GIT_COLOR_STATE" " [$dir_status]")"
+    fi
+  fi
+
+  printf "%s" "$prompt"
+}
+
+# -=------------------=-------------------------------------------------------------------------=- #
+#  Prompt             Definition of prompt layout and assembly.                                    #
+#  Assembly                                                                                        #
+# -=------------------=-------------------------------------------------------------------------=- #
+
+PROMPT_COMMAND=precmd
+PS1='$(prompt_host)$(prompt_user)$(prompt_dir)$(prompt_git)\n$(prompt_char)'

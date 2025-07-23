@@ -1,7 +1,8 @@
 # Variables
 platforms="macos"
-context="core"
+context="personal"
 
+# Install
 install() {
     brew_install
 }

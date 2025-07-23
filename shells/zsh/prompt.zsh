@@ -137,61 +137,68 @@ PR_GIT_ICON_DIR_STASHED='$'
 
 ## Render Git prompt
 function prompt_git() {
+    if [ $PR_GIT_SHOW -eq 0 ] ; then
+        return 0
+    fi
+
+    if ! command -v git &> /dev/null || ! git rev-parse --is-inside-work-tree &> /dev/null; then
+        return 0
+    fi
+
     local branch upstream commits count directory branch_icon
     local prompt
-    # Show git info
-    if [ $PR_GIT_SHOW -eq 1 ] ; then
-        branch=$(git symbolic-ref HEAD 2>/dev/null | awk -F/ {'print $NF'})
-        [ -z $branch ] && return 0
 
-        # Show upstream info
-        if [ $PR_GIT_SHOW_UPSTREAM_INFO -eq 1 ] ; then
-            upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null)
-            if [ -z "$upstream" ] ; then
-                branch_icon="$PR_GIT_ICON_BRANCH_NEW"
-            else
-                if commits="$(git rev-list --left-right "$upstream"...HEAD 2> /dev/null)" ; then
-                    local behind=0 ahead=0
-                    ## TODO: this is not splitting to lines
-                    for commit in $commits ; do
-                        case $commit in
-                            "<"*) behind=$(( $behind + 1 )) ;;
-                            *) ahead=$(( $ahead + 1 )) ;;
-                        esac
-                    done
-                    count="$behind $ahead"
-                else
-                    count=""
-                fi
-                case "$count" in
-                    "") branch_icon="$PR_GIT_ICON_BRANCH_NEW" ;;
-                    "0 0") branch_icon="$PR_GIT_ICON_BRANCH_MATCH" ;;
-                    "0 "*) branch_icon="$PR_GIT_ICON_BRANCH_AHEAD" ;;
-                    *" 0") branch_icon="$PR_GIT_ICON_BRANCH_BEHIND" ;;
-                    *) branch_icon="$PR_GIT_ICON_BRANCH_DIVERGED" ;;
-                esac
-            fi
-            prompt+=" on ${PR_GIT_COLOR_BRANCH}${PR_GIT_ICON_BRANCH} ${branch}${branch_icon}"
+    # Show branch name
+    branch=$(git symbolic-ref HEAD 2>/dev/null | awk -F/ {'print $NF'})
+    [ -z $branch ] && return 0
+
+    # Show upstream info
+    if [ $PR_GIT_SHOW_UPSTREAM_INFO -eq 1 ] ; then
+        upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2> /dev/null)
+        if [ -z "$upstream" ] ; then
+            branch_icon="$PR_GIT_ICON_BRANCH_NEW"
         else
-            prompt+=" on ${PR_GIT_COLOR_BRANCH}${PR_GIT_ICON_BRANCH} ${branch}"
-        fi
-
-        # Show directory info
-        if [ $PR_GIT_SHOW_DIRECTORY_INFO -eq 1 ] ; then
-            local untracked modified
-            directory=$(git status --porcelain | cut -c 2 | sort | uniq -c)
-            if [ ! -z $directory ] ; then
-                prompt+=" ${PR_GIT_COLOR_STATE}["
-                untracked=$(echo $directory | grep -c "?")
-                modified=$(echo $directory | grep -c -v "?")
-                [ $untracked -ne 0 ] && prompt+="${PR_GIT_ICON_DIR_UNTRACKED}"
-                [ $modified -ne 0 ] && prompt+="${PR_GIT_ICON_DIR_MODIFIED}"
-                prompt+="]"
+            if commits="$(git rev-list --left-right "$upstream"...HEAD 2> /dev/null)" ; then
+                local behind=0 ahead=0
+                ## TODO: this is not splitting to lines
+                for commit in $commits ; do
+                    case $commit in
+                        "<"*) behind=$(( $behind + 1 )) ;;
+                        *) ahead=$(( $ahead + 1 )) ;;
+                    esac
+                done
+                count="$behind $ahead"
+            else
+                count=""
             fi
+            case "$count" in
+                "") branch_icon="$PR_GIT_ICON_BRANCH_NEW" ;;
+                "0 0") branch_icon="$PR_GIT_ICON_BRANCH_MATCH" ;;
+                "0 "*) branch_icon="$PR_GIT_ICON_BRANCH_AHEAD" ;;
+                *" 0") branch_icon="$PR_GIT_ICON_BRANCH_BEHIND" ;;
+                *) branch_icon="$PR_GIT_ICON_BRANCH_DIVERGED" ;;
+            esac
         fi
-        prompt+="%f"
-        echo "$prompt"
+        prompt+=" on ${PR_GIT_COLOR_BRANCH}${PR_GIT_ICON_BRANCH} ${branch}${branch_icon}"
+    else
+        prompt+=" on ${PR_GIT_COLOR_BRANCH}${PR_GIT_ICON_BRANCH} ${branch}"
     fi
+
+    # Show directory info
+    if [ $PR_GIT_SHOW_DIRECTORY_INFO -eq 1 ] ; then
+        local untracked modified
+        directory=$(git status --porcelain | cut -c 2 | sort | uniq -c)
+        if [ ! -z $directory ] ; then
+            prompt+=" ${PR_GIT_COLOR_STATE}["
+            untracked=$(echo $directory | grep -c "?")
+            modified=$(echo $directory | grep -c -v "?")
+            [ $untracked -ne 0 ] && prompt+="${PR_GIT_ICON_DIR_UNTRACKED}"
+            [ $modified -ne 0 ] && prompt+="${PR_GIT_ICON_DIR_MODIFIED}"
+            prompt+="]"
+        fi
+    fi
+    prompt+="%f"
+    echo "$prompt"
 }
 
 # -=------------------=-------------------------------------------------------------------------=- #
@@ -239,6 +246,13 @@ function prompt_char() {
 
 ## Pre Command run before prompt
 precmd() {
+    local hn=$(hostname)
+    echo -e "\033]1337;SetBadgeFormat=$(echo -n $hn | base64)\a"
+    printf "\033]1337;RemoteHost=%s@%s\007" "$USER" "$hn"
+    printf "\033]1337;CurrentDir=%s\007" "$PWD"
+    # printf "\e]0;$USER@$hn:$PWD\a"
+    printf "\e]0;$hn\a"
+
     if [ $PR_NEWLINE -eq 1 ] ; then
         echo
     fi

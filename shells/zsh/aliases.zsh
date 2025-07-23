@@ -9,5 +9,8 @@ alias cd...='cd ../../..'
 alias cd....='cd ../../../..'
 alias cd.....='cd ../../../../..'
 
-## Useful Aliases
+## Flush DNS Cache
 alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder'
+
+## Copy current directory to clipboard
+alias cpc='pwd | pbcopy'
