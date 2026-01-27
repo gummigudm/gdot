@@ -1,0 +1,245 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# ------------------------------------------------------------------------------
+# Variables
+# ------------------------------------------------------------------------------
+
+commit_type=""
+commit_scope=""
+commit_breaking_change=0
+commit_message=""
+
+# ------------------------------------------------------------------------------
+# Functions
+# ------------------------------------------------------------------------------
+
+sanitize_line() {
+    local input="$1"
+    local piece
+    local -a parts cleaned_parts
+
+    # Collapse all whitespace into single spaces
+    input="$(echo "$input" | tr -s '[:space:]' ' ')"
+
+    # Remove trailing period(s)
+    input="${input%\.}"
+
+    # Split input into parts on period
+    IFS='.' read -ra parts <<< "$input"
+
+    # Trim and capitalize each part
+    for piece in "${parts[@]}"; do
+        # Trim leading/trailing spaces
+        piece="${piece#"${piece%%[![:space:]]*}"}"   # leading
+        piece="${piece%"${piece##*[![:space:]]}"}"   # trailing
+
+        # Skip empty parts
+        [[ -z "$piece" ]] && continue
+
+        # Capitalize first letter
+        piece="${piece^}"
+
+        cleaned_parts+=("$piece")
+    done
+
+    # If nothing valid found, exit
+    if [ "${#cleaned_parts[@]}" -eq 0 ]; then
+        echo "❌ Invalid commit message."
+    fi
+
+    # Join all parts with ". " (properly)
+    local result="${cleaned_parts[0]}"
+    for ((i = 1; i < ${#cleaned_parts[@]}; i++)); do
+        result+=". ${cleaned_parts[i]}"
+    done
+
+    printf "%s." "$result"
+}
+
+validate_scope() {
+    local input="$1"
+    if [[ ! "$input" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+        echo "❌ Invalid scope. Only alphanumeric characters and dashes are allowed, cannot start or end with dash."
+        exit 1
+    fi
+    commit_scope="$input"
+}
+
+validate_type() {
+    local input="$1"
+    if [[ ! "$input" =~ ^[a-z0-9]+(\([a-z0-9-]+\))?!?$ ]]; then
+        echo "❌ Invalid type. See conventional commit for valid types."
+        exit 1
+    fi
+    if [[ "$input" =~ \!$ ]]; then
+        commit_breaking_change=1
+        input="${input%!}"
+        commit_type="$input"
+    else
+        commit_breaking_change=0
+    fi
+    if [[ "$input" =~ \([a-z0-9-]+\) ]]; then
+        commit_scope="${input#*(}"
+        commit_scope="${commit_scope%)*}"
+        commit_type="${input%%(*}"
+        validate_scope "$commit_scope"
+    fi
+}
+
+
+# ------------------------------------------------------------------------------
+# Validation and Input
+# ------------------------------------------------------------------------------
+
+## Check if there are any staged changes
+if git diff --cached --quiet; then
+    printf "❌ No staged changes found. Please stage your changes before committing.\n"
+    exit 1
+fi
+
+## Check Type
+if [ -z "$1" ]; then
+    # Ask for type of commit
+    printf "📋 Commit type:\n"
+    printf "1.  fix\n2.  feat\n3.  docs\n"
+    printf "4.  style\n5.  refactor\n6.  perf\n"
+    printf "7.  test\n8.  chore\n9.  build\n"
+    printf "10. ci\n11.  revert\n"
+    printf "<s> custom\n"
+    read -p "Type: " commit_type
+else
+    commit_type="$1"
+fi
+
+if [ -z "$commit_type" ]; then
+    printf "\n❌ No commit type provided. Exiting.\n"
+    exit 1
+fi
+
+case "$commit_type" in
+    f)
+        commit_type="fix"
+        commit_scope="quickfix"
+        commit_breaking_change=2
+        ;;
+    1 | fix)
+        commit_type="fix"
+        ;;
+    2 | feat | feature)
+        commit_type="feat"
+        ;;
+    3 | docs | doc)
+        commit_type="docs"
+        ;;
+    4 | style)
+        commit_type="style"
+        ;;
+    5 | refactor)
+        commit_type="refactor"
+        ;;
+    6 | perf)
+        commit_type="perf"
+        ;;
+    7 | test)
+        commit_type="test"
+        ;;
+    8 | chore)
+        commit_type="chore"
+        ;;
+    9 | build)
+        commit_type="build"
+        ;;
+    10 | ci)
+        commit_type="chore"
+        commit_scope="ci"
+        ;;
+    11 | revert)
+        commit_type="revert"
+        ;;
+    *)
+        validate_type "$commit_type"
+        ;;
+esac
+
+## Check scope
+if [ -z "$commit_scope" ]; then
+    read -p "✏️ Scope (optional): " commit_scope
+    if [ -n "$commit_scope" ]; then
+        validate_scope "$commit_scope"
+    fi
+fi
+
+if [ "$commit_scope" == "quickfix" ]; then
+    commit_scope=""
+fi
+
+## Check breaking change
+if [ $commit_breaking_change -eq 0 ]; then
+    read -p "❗️ Is this a breaking change? (y/n): " is_breaking_change
+    if [[ "$is_breaking_change" =~ ^[Yy]$ ]]; then
+        commit_breaking_change=1
+    else
+        commit_breaking_change=0
+    fi
+fi
+
+if [ $commit_breaking_change -eq 2 ]; then
+    commit_breaking_change=0
+fi
+
+## Prepare commit string
+commit_string="$commit_type"
+if [ -n "$commit_scope" ]; then
+    commit_string+="($commit_scope)"
+fi
+if [ $commit_breaking_change -eq 1 ]; then
+    commit_string+="!"
+fi
+commit_string+=": "
+
+## Set commit message
+if [ -n "$2" ]; then
+    shift
+    commit_message+=$(sanitize_line "$*")
+    first_line="$commit_message"
+else
+    printf "📝 Commit message:\n\n"
+    first_line=""
+    while true; do
+        if [ -z "$first_line" ]; then
+            read -p "→ " line
+        else
+            read -p "* " line
+        fi
+        if [ -z "$line" ]; then
+            if [ -z "$first_line" ]; then
+                printf "❌ No commit message provided. Exiting.\n"
+                exit 1
+            fi
+            break
+        fi
+        line=$(sanitize_line "$line")
+        if [ -z "$commit_message" ]; then
+            commit_message="$line\n"
+        else
+            commit_message+="\n* $line"
+        fi
+        if [ -z "$first_line" ]; then
+            first_line="$line"
+        fi
+    done
+fi
+
+commit_string+="$commit_message"
+
+if [ $commit_breaking_change -eq 1 ]; then
+    commit_string="$commit_string\n\nBREAKING CHANGE: $first_line"
+fi
+
+# ------------------------------------------------------------------------------
+# Commit the changes
+# ------------------------------------------------------------------------------
+
+git commit -m "$(printf "$commit_string")" >/dev/null
+printf "\n📦 Commit created.\n"

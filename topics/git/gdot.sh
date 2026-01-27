@@ -11,6 +11,12 @@ install() {
 
 # Configure
 configure() {
+    configure_gitconfig
+    configure_gh_extensions
+}
+
+# Configure git config
+configure_gitconfig() {
     # Variables
     macos_default_1pass_program="/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
 
@@ -98,5 +104,24 @@ configure() {
     printf '[includeIf "gitdir:%s"]\n' "$gdot_code_dir/work/" >> "$HOME/.gitconfig"
     printf "    path = %s\n\n" "$gdot_code_dir/work/.gitconfig" >> "$HOME/.gitconfig"
 
-    log "Git configuration ensured"
+    log "Gitconfig configuration ensured"
+}
+
+# Configure gh extensions
+configure_gh_extensions() {
+    local extension_dir="$HOME/.local/share/gh/extensions"
+    create_dir "$extension_dir"
+
+    while IFS= read -r ghext; do
+        ext_name=$(basename "$ghext")
+        create_link "$gdot_path/lib/gh/$ext_name" "$extension_dir/$ext_name"
+
+    done < <(
+        find "$gdot_path/lib/gh" -mindepth 1 -maxdepth 1 -type d |
+        while IFS= read -r path; do
+            printf "%s\t%s\n" "$(basename "$path")" "$path"
+        done | sort -k1,1 | cut -f2
+    )
+
+    log "GitHub CLI extensions ensured"
 }

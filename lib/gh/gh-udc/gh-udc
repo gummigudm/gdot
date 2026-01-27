@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ensure we're in a Git repository
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+  echo "❌ Not inside a Git repository."
+  exit 1
+fi
+
+# Move to the repo root
+cd "$(git rev-parse --show-toplevel)"
+
+# Save current branch name
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Fetch all from origin
+git fetch origin
+
+# Check if current branch has an upstream
+if ! upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null); then
+  echo "⚠️ Branch '$current_branch' has no upstream set. Cannot safely compare to remote."
+  exit 1
+fi
+
+# Check if local branch is ahead of upstream (unpushed commits)
+if [ "$(git rev-list --count "$upstream"..HEAD)" -gt 0 ]; then
+  echo "🚫 Local branch '$current_branch' has unpushed commits. Aborting to prevent data loss."
+  exit 1
+fi
+
+# Check for local changes
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  stash_name="update-main-stash-$(date +%s)"
+  echo "💾 Stashing local changes as: $stash_name"
+  git stash push -u -m "$stash_name"
+  stash_saved=true
+else
+  stash_saved=false
+fi
+
+# Detect default branch (fallback to main)
+default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@') || default_branch="main"
+
+# Checkout and update default branch
+git checkout "$default_branch"
+git pull origin "$default_branch"
+
+# Switch back and reset current branch
+git checkout "$current_branch"
+git reset --hard "$default_branch"
+
+# Re-apply stash if it was created
+if [ "$stash_saved" = true ]; then
+  echo "🔄 Restoring stashed changes..."
+  if git stash apply; then
+    git stash drop
+    echo "✅ Stashed changes restored."
+  else
+    echo "⚠️ Stash apply failed. Resolve conflicts manually. Stash not dropped."
+  fi
+fi
+
+echo "🎉 Branch '$current_branch' is now up to date with '$default_branch'."

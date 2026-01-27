@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# ------------------------------------------------------------------------------
+# Variables
+# ------------------------------------------------------------------------------
+
+feature_branch=""
+
+
+# ------------------------------------------------------------------------------
+# Functions
+# ------------------------------------------------------------------------------
+
+## Validate feature branch name
+validate_branch_name() {
+    local branch_name="$1"
+    # start by splitting the branch name by slashes
+    IFS='/' read -ra parts <<< "$branch_name"
+    # check if the first part is 'feat or feature', then strip it
+    if [[ "${parts[0]}" == "feat" && "${parts[0]}" == "feature" ]]; then
+        parts=("${parts[@]:1}")  # remove the first part
+    fi
+    # check if all parts consist only of alphanumeric characters or dashes but does not start with a dash
+    for part in "${parts[@]}"; do
+        if [[ ! "$part" =~ ^[a-zA-Z0-9]+[-a-zA-Z0-9]*$ ]]; then
+            echo "❌ Invalid branch name part: '$part'. Only alphanumeric characters and dashes are allowed, and it cannot start with a dash or slash."
+            exit 1
+        fi
+    done
+    feature_branch="feat/$branch_name"
+    return 0
+}
+
+# ------------------------------------------------------------------------------
+# Run
+# ------------------------------------------------------------------------------
+
+## Ask for feature branch name if not provided
+if [ -z "$1" ]; then
+    # Ask for feature branch name
+    read -p "🖊️ Feature name: " feature_branch
+else
+    feature_branch="$1"
+fi
+
+# Validate the feature branch name
+validate_branch_name "$feature_branch"
+
+# Check if branch aleady exists
+if git show-ref --verify --quiet "refs/heads/$feature_branch"; then
+    echo "⚠️ Branch '$feature_branch' already exists. switching to it."
+    git checkout "$feature_branch"
+else
+    # Create the feature branch
+    git checkout -b "$feature_branch"
+    echo "✅ Created and switched to new branch: '$feature_branch'"
+fi
